@@ -1,0 +1,119 @@
+---
+title: "Exploratory Data Analysis"
+output: html_notebook
+---
+
+Importing the libraries
+```{r}
+library(moments)
+library(dplyr)
+library(DescTools)
+library(ggplot2)
+library(readr)
+```
+Reading the data set
+```{r}
+data<-read.csv("Placement_Data_Full_Class.csv")
+head(data)
+```
+Summary and Glimpse of Data
+```{r}
+summary(data)
+glimpse(data)
+```
+
+Data Cleaning 
+```{r}
+data$salary[is.na(data$salary)]<-0
+head(data)
+```
+Data Normalization 
+```{r}
+normalize<-function(attribute){ return ( (attribute - min(attribute))/(max(attribute)-min(attribute))) }
+data$ssc_p<-normalize(data$ssc_p)
+data$hsc_p<-normalize(data$hsc_p)
+data$degree_p<-normalize(data$degree_p)
+data$etest_p<-normalize(data$etest_p)
+data$mba_p<-normalize(data$mba_p)
+data$salary<-normalize(data$salary)
+head(data)
+```
+Exploratory Data Analysis
+```{r}
+male_female_job<-data%>%group_by(status,gender)%>%summarize(count=n())
+head(male_female_job)
+bar<-ggplot(data=data,aes(x=status))+geom_bar(width=0.25,aes(fill=gender),position=position_dodge())+labs(title="Male-Female placed",subtitle="Number of male and female placed")
+bar
+```
+```{r}
+bar1<-ggplot(data=data,aes(x=status))+geom_bar(width=0.25,aes(fill=workex),position=position_dodge())+labs(title="Bar chart of workex being places",subtitle="Influence of work experience on placement")
+bar1
+```
+```{r}
+degree_sci<-data%>%group_by(status,degree_t)%>%summarize(count=n())
+degree_sci
+freq<-degree_sci%>%filter(status=="Placed")
+freq
+```
+```{r}
+piepercent<-round(100*freq$count/sum(freq$count),1)
+pie(freq$count,labels=piepercent,main="Proportion of different type of gegree's who have been placed",col=rainbow(length(freq$count)))
+legend("topright",freq$degree_t, cex=0.8,fill=rainbow(length(freq$count)))
+hist(data$hsc_p)
+```
+```{r}
+sal<-data$salary
+sscp<-data$ssc_p
+m<-cor.test(sal,sscp,ethod="pearson")
+m
+```
+```{r}
+stripchart(data$salary)
+```
+```{r}
+qqnorm(data$salary)
+mbap<-data$mba_p
+sal<-data$salary
+plot(mbap,sal,xlab="mba percentage",ylab="salary")
+```
+```{r}
+degree<-data$degree_t
+boxplot(sal~degree,xlab="degree",ylab="salary")
+```
+```{r}
+hist(sal)
+```
+```{r}
+skewness(sal)
+```
+```{r}
+kurtosis(sal)
+```
+```{r}
+plot(data$degree_p,data$salary,xlab="Degree Percentage", ylab="Salary")
+```
+```{r}
+c<-cor.test(data$salary,data$degree_p,method="pearson")
+c
+```
+```{r}
+boxplot(data$salary~data$gender,xlab="Gender",ylab="Salary")
+```
+```{r}
+salary<-data$salary
+etest<-data$etest_p
+plot(etest,salary,xlab="Interview Test Percentage",ylab="Salary")
+```
+```{r}
+c<-cor.test(salary,etest,method="pearson")
+c
+```
+```{r}
+specialisation<-data$specialisation
+stable<-table(specialisation)
+names(stable)[which(stable==max(stable))]
+
+```
+
+
+
