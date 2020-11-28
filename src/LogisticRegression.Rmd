@@ -1,0 +1,262 @@
+---
+title: "Logistic Regression"
+output: html_notebook
+---
+
+Installing all the packages:-
+```{r}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(DescTools)
+library(moments)
+library(ISLR)
+library(aod)
+```
+
+
+Reading Data:-
+```{r}
+data<-read.csv("Placement_Data_Full_Class.csv")
+head(data)
+```
+Gaining insights from the data:-
+```{r}
+summary(data)
+```
+```{r}
+str(data)
+```
+
+Removing NA values from salary(if not placed) to 0:-
+```{r}
+data$salary[is.na(data$salary)]<-0;
+head(data)
+```
+Feature selection:-
+```{r}
+data<-subset(data,select = -c(sl_no,ssc_b,hsc_b))
+head(data)
+```
+Checking for outliers:-
+```{r}
+boxplot(data$ssc_p,xlab="10th Marks")
+```
+
+```{r}
+boxplot(data$degree_p,xlab="degree")
+```
+```{r}
+boxplot(data$mba_p,xlab="MBA")
+```
+```{r}
+boxplot(data$etest_p,xlab="Employbality test")
+```
+```{r}
+boxplot(data$hsc_p,xlab="12th Marks")
+```
+so there is outliers in column hsc_p. No other columns have a significant amount of outliers.
+
+Removing outliers from hsc_p column:-
+```{r}
+q1<-quantile(data$hsc_p,0.25)
+q3<-quantile(data$hsc_p,0.75)
+iqr<-1.5*(q3-q1)
+data<- data %>% filter(data$hsc_p>=q1-iqr,data$hsc_p<=q3+iqr)
+boxplot(data$hsc_p,xlab="after Cleaning 12th Marks")
+```
+Preparing the data for the model Logistic Regression
+
+Identifying the unique data in the categorical columns:-
+```{r}
+unique(data$hsc_s,incomparables = FALSE)
+unique(data$degree_t,incomparables = FALSE)
+unique(data$specialisation,incomparables = FALSE)
+```
+
+Replacing the categorical values with corresponding numbers:-
+```{r}
+data$workex<-as.numeric(as.factor(data$workex))-1
+data$gender<-as.numeric(as.factor(data$gender))-1
+data$specialisation<-as.numeric(as.factor(data$specialisation))-1
+data$status<-as.numeric(as.factor(data$status))-1
+data
+```
+```{r}
+#library(caret)
+#scales <- list(x=list(relation="free"), y=list(relation="free"))
+#featurePlot(x=data[,2:3], y=data$status, plot="density")
+```
+
+Creating dummy variables for qualitative columns:-
+```{r}
+data<- data %>% mutate(
+  Commerce=case_when(hsc_s=="Commerce"~1,TRUE~0),
+  Arts=case_when(hsc_s=="Arts"~1,TRUE~0),
+  Science=case_when(hsc_s=="Science"~1,TRUE~0),
+  SciTech=case_when(degree_t=="Sci&Tech"~1,TRUE~0),
+  CommMgmt=case_when(degree_t=="Comm&Mgmt"~1,TRUE~0), 
+  Others=case_when(degree_t=="Others"~1,TRUE~0),
+  )
+data<-subset(data,select = -c(hsc_s,degree_t,salary))
+head(data)
+```
+
+Testing the model locally
+
+
+Model Creation with all parameters:-
+```{r}
+model1<-glm(status~gender+ssc_p+hsc_p+degree_p+workex+etest_p+specialisation+mba_p+Commerce+Arts+Science+SciTech+CommMgmt+Others , data=data, family=binomial)
+summary(model1)
+```
+We see that gender,ssc_p,hsc_p,degree_p,workex,mba_p are statistically significant at 0.05 (ie.. 95% confidence interval)
+
+Interpretation
+For every one unit change in gender, the log odds of admission (versus non-admission) increases by 0.042906.
+For every one unit change in hsc_p, the log odds of admission (versus non-admission) increases by 0.007143.
+For every one unit change in degree_p, the log odds of admission (versus non-admission) increases by 0.000887.
+For every one unit change in mba_p, the log odds of admission (versus non-admission) decreases by 0.000285.
+
+ANOVA test for the overall logistic model:-
+```{r}
+anova(model1,test = 'Chisq')
+```
+We see that ssc_p,hsc_p,degree_p,workex,mba_p are statistically significant.
+
+Developing a model with these parameters:-
+```{r}
+model2<-glm(status~gender+ssc_p+hsc_p+degree_p+workex+mba_p,data=data,family=binomial)
+summary(model2)
+```
+
+ANOVA test:-
+```{r}
+anova(model1,model2,test = 'Chisq')
+```
+Now we got a general idea of what parameters to consider for the model.
+
+Splitting data set into training and testing data:-
+```{r}
+library(caret)
+set.seed(3456)
+split <- createDataPartition(y = data$status,p = 0.67,list = FALSE)
+```
+
+```{r}
+new_train <- data[split,] 
+new_train
+```
+```{r}
+new_test <-data[-split,]
+new_test
+```
+
+Applying the model for the training data set
+```{r}
+log_model<-glm(status~gender+ssc_p+hsc_p+degree_p+workex+mba_p,data=new_train,family=binomial)
+summary(log_model)
+```
+Predicting the model for the testing dataset
+```{r}
+log_predict <- predict(log_model,newdata = new_test,type = "response")
+log_predict <- ifelse(log_predict > 0.5,1,0)
+```
+Setting the threshold to see the max accuracy.
+
+Plotting the ROC curve:-
+```{r}
+library(ROCR)
+library(Metrics)
+pr <- prediction(log_predict,new_test$status)
+perf <- performance(pr,measure = "tpr",x.measure = "fpr") 
+plot(perf)  
+```
+
+Accuracy:-
+```{r}
+auc(new_test$status,log_predict) 
+```
+
+Confusion Matriv for threshold=0.5
+```{r message=FALSE}
+library(caret)
+final<-factor(log_predict)
+levels(final)
+attach(new_test)
+test<-factor(status)
+levels(test)
+
+confusionMatrix(final, test)
+```
+
+Choosing a lower threshold (ie.. 0.4)
+```{r}
+log_predict <- predict(log_model,newdata = new_test,type = "response")
+log_predict <- ifelse(log_predict > 0.4,1,0)
+```
+
+Plotting ROC curve:-
+```{r}
+library(ROCR)
+library(Metrics)
+pr <- prediction(log_predict,new_test$status)
+perf <- performance(pr,measure = "tpr",x.measure = "fpr") 
+plot(perf)  
+```
+Accuracy:-
+```{r}
+auc(new_test$status,log_predict) 
+```
+No significant change in Accuracy
+
+Confusion matrix for thres=0.4
+```{r message=FALSE}
+library(caret)
+final<-factor(log_predict)
+levels(final)
+attach(new_test)
+test<-factor(status)
+levels(test)
+
+confusionMatrix(final, test)
+```
+Threshold =0.6
+```{r}
+log_predict <- predict(log_model,newdata = new_test,type = "response")
+log_predict <- ifelse(log_predict > 0.6,1,0)
+```
+
+```{r}
+library(ROCR)
+library(Metrics)
+pr <- prediction(log_predict,new_test$status)
+perf <- performance(pr,measure = "tpr",x.measure = "fpr") 
+plot(perf)  
+```
+```{r}
+auc(new_test$status,log_predict) 
+```
+```{r message=FALSE}
+library(caret)
+final<-factor(log_predict)
+levels(final)
+attach(new_test)
+test<-factor(status)
+levels(test)
+
+confusionMatrix(final, test)
+```
+Choosing threshold=0.06
+
+Diagnostic test
+
+McFadden's R squared
+```{r}
+null_model<-glm(status~1,data=new_train,family=binomial)
+1-logLik(log_model)/logLik(null_model)
+```
+
+
+
+
