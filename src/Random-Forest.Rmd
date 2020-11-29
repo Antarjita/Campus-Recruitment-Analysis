@@ -14,7 +14,7 @@ library(dplyr)
 ```
 Reading the dataset
 ```{r}
-set.seed(3456)
+set.seed(7)
 data<-read.csv("Placement_Data_Full_Class.csv")
 head(data)
 ```
