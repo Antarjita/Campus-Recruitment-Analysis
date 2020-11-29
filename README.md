@@ -20,8 +20,8 @@ The columns Description:-
 8. degree_p: Degree Percentage
 9. degree_t: Under Graduation(Degree type)- Field of degree education
 10.workex : Work Experience
-11.etest_p: Employability test percentage ( conducted by college
-13.specialisation: Post Graduation(MBA)- Specialization
+11.etest_p: Employability test percentage 
+13.specialisation: Post Graduation(MBA)
 14.mba_p : MBA percentage
 15.status: Status of placement- Placed/Not placed
 16.salary: Salary offered by corporate to candidates
